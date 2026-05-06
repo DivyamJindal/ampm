@@ -19,6 +19,20 @@ OPENAI_MODEL=gpt-5.4-mini
 NEXT_PUBLIC_SCOUT_PROPOSAL_URL=https://your-proposal-link
 ```
 
+The setup panel also includes a temporary local preview key helper. Use it only for local testing;
+production should use Vercel environment variables so keys never ship in client code or git.
+
+## Engine shape
+
+The chat route returns a structured "agent room" trace before rendering the final DM:
+
+- interaction agent: frames the creator ops task
+- tone reader: adapts voice to the creator reply
+- fit scorer: evaluates AM:PM creator fit
+- negotiation simulator: compares offer strategies with Monte Carlo-style outcomes
+- guardrail: checks ceiling secrecy, banned words, over-offer risk, and human tone
+- message writer: turns the selected strategy into the visible iMessage reply
+
 ## Deploy
 
 Deploy to Vercel with:

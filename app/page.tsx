@@ -6,9 +6,13 @@ import {
   ArrowUp,
   Check,
   ChevronLeft,
+  Activity,
+  Cpu,
+  KeyRound,
   Loader2,
   MessagesSquare,
   RotateCcw,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import clsx from "clsx";
@@ -100,6 +104,7 @@ export default function Home() {
   const [stagedPlan, setStagedPlan] = useState<AgentResponse | null>(null);
   const [lastPlan, setLastPlan] = useState<AgentResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [temporaryApiKey, setTemporaryApiKey] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const selectedPreset = useMemo(
@@ -123,6 +128,21 @@ export default function Home() {
     });
   }, [messages, isThinking, stagedPlan]);
 
+  useEffect(() => {
+    const savedKey = window.sessionStorage.getItem("ampm_openai_key") ?? "";
+    setTemporaryApiKey(savedKey);
+  }, []);
+
+  function updateTemporaryApiKey(value: string) {
+    setTemporaryApiKey(value);
+
+    if (value.trim()) {
+      window.sessionStorage.setItem("ampm_openai_key", value.trim());
+    } else {
+      window.sessionStorage.removeItem("ampm_openai_key");
+    }
+  }
+
   async function requestAgentReply(nextMessages: ChatMessage[], nextDealState: DealState, activeCreator: CreatorPersona) {
     setIsThinking(true);
     setError(null);
@@ -132,6 +152,7 @@ export default function Home() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(temporaryApiKey.trim() ? { "x-openai-key": temporaryApiKey.trim() } : {}),
         },
         body: JSON.stringify({
           creator: activeCreator,
@@ -259,8 +280,8 @@ export default function Home() {
           className={clsx(
             "grid flex-1 gap-4",
             setupCollapsed
-              ? "lg:grid-cols-[minmax(220px,0.62fr)_minmax(420px,1.38fr)_minmax(320px,0.9fr)]"
-              : "lg:grid-cols-[minmax(300px,0.86fr)_minmax(420px,1.24fr)_minmax(320px,0.9fr)]",
+              ? "lg:grid-cols-[minmax(220px,0.58fr)_minmax(420px,1.28fr)_minmax(360px,1.04fr)]"
+              : "lg:grid-cols-[minmax(300px,0.82fr)_minmax(420px,1.18fr)_minmax(360px,1fr)]",
           )}
         >
           <SetupPanel
@@ -271,6 +292,8 @@ export default function Home() {
             collapsed={setupCollapsed}
             creator={creator}
             canStartCustom={canStartCustom}
+            temporaryApiKey={temporaryApiKey}
+            setTemporaryApiKey={updateTemporaryApiKey}
             onStart={startDemo}
             onReset={resetDemo}
           />
@@ -314,6 +337,8 @@ function SetupPanel({
   collapsed,
   creator,
   canStartCustom,
+  temporaryApiKey,
+  setTemporaryApiKey,
   onStart,
   onReset,
 }: {
@@ -324,6 +349,8 @@ function SetupPanel({
   collapsed: boolean;
   creator: CreatorPersona | null;
   canStartCustom: boolean;
+  temporaryApiKey: string;
+  setTemporaryApiKey: (value: string) => void;
   onStart: () => void;
   onReset: () => void;
 }) {
@@ -365,6 +392,7 @@ function SetupPanel({
               <RotateCcw size={16} />
               reset room
             </button>
+            <KeyHelper value={temporaryApiKey} onChange={setTemporaryApiKey} compact />
           </motion.div>
         ) : (
           <motion.div
@@ -440,6 +468,8 @@ function SetupPanel({
               </div>
             ) : null}
 
+            <KeyHelper value={temporaryApiKey} onChange={setTemporaryApiKey} />
+
             <button
               type="button"
               onClick={onStart}
@@ -453,6 +483,63 @@ function SetupPanel({
         )}
       </AnimatePresence>
     </aside>
+  );
+}
+
+function KeyHelper({
+  value,
+  onChange,
+  compact,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasKey = value.trim().length > 0;
+
+  return (
+    <div className={clsx("rounded-lg border border-white/10 bg-black/25", compact ? "p-3" : "mt-4 p-4")}>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
+          <KeyRound size={16} className={hasKey ? "text-lime" : "text-zinc-500"} />
+          OpenAI key
+        </span>
+        <span className={clsx("text-xs", hasKey ? "text-lime" : "text-zinc-500")}>
+          {hasKey ? "temporary key added" : "help me add it"}
+        </span>
+      </button>
+
+      {open ? (
+        <div className="mt-3 grid gap-3">
+          <div className="rounded-md border border-lime/15 bg-lime/[0.06] p-3 text-xs leading-5 text-zinc-300">
+            Best path: add <span className="font-[var(--font-jetbrains)] text-lime">OPENAI_API_KEY</span>{" "}
+            to <span className="font-[var(--font-jetbrains)] text-lime">.env.local</span>, then restart{" "}
+            <span className="font-[var(--font-jetbrains)] text-lime">npm run dev</span>. For Vercel, set it as an
+            environment variable.
+          </div>
+          <label className="grid gap-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
+            temporary local preview key
+            <input
+              value={value}
+              type="password"
+              autoComplete="off"
+              placeholder="paste key for this browser session"
+              onChange={(event) => onChange(event.target.value)}
+              className="h-10 rounded-md border border-white/10 bg-black/40 px-3 text-sm normal-case tracking-normal text-white outline-none transition placeholder:text-zinc-700 focus:border-lime"
+            />
+          </label>
+          <p className="text-xs leading-5 text-zinc-500">
+            This is stored only in this browser&apos;s sessionStorage and sent to this app&apos;s API route as a
+            request header. Do not commit real keys.
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -673,18 +760,70 @@ function ThoughtPanel({
   isThinking: boolean;
 }) {
   const score = activePlan?.fit_score ?? null;
+  const pendingTrace = useMemo(
+    () => [
+      {
+        agent: "interaction_agent",
+        status: "done",
+        summary: "framing creator ops task",
+        detail: "building context from persona, rate sheet, stage, and latest reply",
+        latency_ms: 86,
+      },
+      {
+        agent: "tone_reader",
+        status: "running",
+        summary: "reading creator energy",
+        detail: "checking whether to stay casual, tighten up, or ask a qualifying question",
+        latency_ms: 0,
+      },
+      {
+        agent: "fit_scorer",
+        status: "waiting",
+        summary: "waiting for tone read",
+        detail: "will score niche fit, audience size, and likely brand match",
+        latency_ms: 0,
+      },
+      {
+        agent: "negotiation_simulator",
+        status: "waiting",
+        summary: "queued",
+        detail: "will compare hold, counter, bonus, and walk-away paths",
+        latency_ms: 0,
+      },
+      {
+        agent: "guardrail",
+        status: "waiting",
+        summary: "queued",
+        detail: "will check ceiling secrecy, banned words, offer limits, and tone",
+        latency_ms: 0,
+      },
+      {
+        agent: "message_writer",
+        status: "waiting",
+        summary: "queued",
+        detail: "will turn the selected strategy into the final AM:PM DM",
+        latency_ms: 0,
+      },
+    ] satisfies AgentResponse["agent_trace"],
+    [],
+  );
+  const trace = activePlan?.agent_trace ?? (isThinking ? pendingTrace : []);
+  const simulation = activePlan?.monte_carlo ?? null;
+  const guardrails = activePlan?.guardrails ?? null;
 
   return (
-    <aside className="min-h-[620px] rounded-lg border border-white/10 bg-panel p-4 shadow-glow">
+    <aside className="min-h-[620px] overflow-hidden rounded-lg border border-white/10 bg-panel shadow-glow">
       <div className="mb-4 flex items-center justify-between">
-        <div>
-          <div className="text-xs uppercase tracking-[0.22em] text-lime">next move</div>
-          <h2 className="mt-2 text-2xl font-semibold text-white">operator mind</h2>
+        <div className="p-4 pb-0">
+          <div className="text-xs uppercase tracking-[0.22em] text-lime">agent room</div>
+          <h2 className="mt-2 text-2xl font-semibold text-white">ops swarm</h2>
         </div>
-        <Sparkles size={18} className={clsx(isThinking ? "text-lime" : "text-zinc-600")} />
+        <div className="p-4 pb-0">
+          <Sparkles size={18} className={clsx(isThinking ? "text-lime" : "text-zinc-600")} />
+        </div>
       </div>
 
-      <div className="grid gap-3 font-[var(--font-jetbrains)] text-sm">
+      <div className="grid gap-3 px-4 font-[var(--font-jetbrains)] text-sm">
         <StatRow label="fit score" value={score === null ? "--" : `${score}/10`} accent={score !== null && score >= 8} />
         <StatRow label="offer" value={formatInr(dealState?.currentOffer ?? null)} />
         <StatRow label="ceiling" value={formatInr(dealState?.ceiling ?? null)} muted />
@@ -692,7 +831,7 @@ function ThoughtPanel({
         <StatRow label="tier" value={creator ? `Tier ${creator.tier}` : "--"} />
       </div>
 
-      <div className="mt-5 rounded-lg border border-lime/20 bg-lime/[0.07] p-4">
+      <div className="mx-4 mt-5 rounded-lg border border-lime/20 bg-lime/[0.07] p-4">
         <div className="mb-2 text-xs uppercase tracking-[0.22em] text-lime">move</div>
         <AnimatePresence mode="wait">
           <motion.p
@@ -709,24 +848,152 @@ function ThoughtPanel({
         </AnimatePresence>
       </div>
 
-      <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-4">
-        <div className="mb-2 text-xs uppercase tracking-[0.22em] text-zinc-500">thought</div>
-        <p className="min-h-20 text-sm leading-5 text-zinc-400">
-          {activePlan?.thought ?? "no operator read yet"}
-        </p>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-zinc-500">
-        <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-          <div className="text-zinc-300">deliverables</div>
-          <div className="mt-1">2 reels + 3 stories</div>
+      <div className="scrollbar-thin mt-4 max-h-[520px] overflow-y-auto px-4 pb-4">
+        <div className="rounded-lg border border-white/10 bg-black/30 p-4">
+          <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-zinc-500">
+            <Cpu size={14} />
+            live workers
+          </div>
+          <div className="grid gap-2">
+            {trace.length > 0 ? (
+              trace.map((step, index) => (
+                <motion.div
+                  key={`${step.agent}-${index}`}
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 32, delay: index * 0.05 }}
+                  className="rounded-md border border-white/10 bg-white/[0.035] p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={clsx(
+                          "h-2 w-2 shrink-0 rounded-full",
+                          step.status === "done"
+                            ? "bg-lime shadow-[0_0_14px_rgba(212,255,58,0.6)]"
+                            : step.status === "running"
+                              ? "animate-pulse bg-imessage shadow-[0_0_14px_rgba(11,132,255,0.7)]"
+                              : "bg-zinc-700",
+                        )}
+                      />
+                      <span className="truncate font-[var(--font-jetbrains)] text-xs text-zinc-100">
+                        {step.agent.replaceAll("_", " ")}
+                      </span>
+                    </div>
+                    <span className="shrink-0 font-[var(--font-jetbrains)] text-[11px] text-zinc-500">
+                      {step.status === "waiting" ? "wait" : step.status === "running" ? "run" : `${step.latency_ms}ms`}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm text-white">{step.summary}</div>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">{step.detail}</p>
+                </motion.div>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed border-white/10 p-4 text-sm leading-5 text-zinc-500">
+                start the room, the workers will light up here before the DM lands
+              </div>
+            )}
+          </div>
         </div>
-        <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-          <div className="text-zinc-300">payment</div>
-          <div className="mt-1">7 days post delivery</div>
+
+        <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-4">
+          <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-zinc-500">
+            <Activity size={14} />
+            monte carlo
+          </div>
+          {simulation ? (
+            <div className="grid gap-3">
+              <div className="grid grid-cols-3 gap-2 font-[var(--font-jetbrains)] text-xs">
+                <MiniStat label="samples" value={`${simulation.sample_size}`} />
+                <MiniStat label="accept" value={`${Math.round(simulation.acceptance_probability * 100)}%`} accent />
+                <MiniStat label="cost" value={formatInr(simulation.expected_cost)} />
+              </div>
+              <div className="rounded-md border border-lime/15 bg-lime/[0.05] p-3">
+                <div className="font-[var(--font-jetbrains)] text-xs text-lime">
+                  selected, {simulation.selected_move.replaceAll("_", " ")}
+                </div>
+                <div className="mt-2 grid gap-1 text-xs leading-5 text-zinc-400">
+                  <p>best, {simulation.best_case}</p>
+                  <p>worst, {simulation.worst_case}</p>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                {simulation.rejected_moves.map((move) => (
+                  <div key={move.move} className="rounded-md border border-white/10 bg-white/[0.025] p-3">
+                    <div className="flex items-center justify-between gap-3 font-[var(--font-jetbrains)] text-xs">
+                      <span className="text-zinc-300">{move.move.replaceAll("_", " ")}</span>
+                      <span className="text-zinc-500">{Math.round(move.acceptance_probability * 100)}%</span>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">{move.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm leading-5 text-zinc-500">
+              waiting to simulate counter paths
+            </p>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-4">
+          <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-zinc-500">
+            <ShieldCheck size={14} />
+            guardrail
+          </div>
+          {guardrails ? (
+            <div className="grid gap-2">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <CheckPill label="ceiling hidden" ok={guardrails.ceiling_hidden} />
+                <CheckPill label="banned words" ok={guardrails.banned_words_clear} />
+                <CheckPill label="under ceiling" ok={guardrails.no_over_offer} />
+                <CheckPill label="human tone" ok={guardrails.human_tone} />
+              </div>
+              <p className="text-xs leading-5 text-zinc-500">{guardrails.notes}</p>
+            </div>
+          ) : (
+            <p className="text-sm leading-5 text-zinc-500">waiting for safety check</p>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-4">
+          <div className="mb-2 text-xs uppercase tracking-[0.22em] text-zinc-500">voice notes</div>
+          <p className="min-h-14 text-sm leading-5 text-zinc-400">
+            {activePlan?.voice_notes ?? activePlan?.thought ?? "no operator read yet"}
+          </p>
         </div>
       </div>
     </aside>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-white/10 bg-white/[0.035] p-2">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-600">{label}</div>
+      <div className={clsx("mt-1 truncate", accent ? "text-lime" : "text-zinc-100")}>{value}</div>
+    </div>
+  );
+}
+
+function CheckPill({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div
+      className={clsx(
+        "rounded-md border px-2 py-1.5",
+        ok ? "border-lime/20 bg-lime/[0.06] text-lime" : "border-ampm/20 bg-ampm/[0.06] text-red-200",
+      )}
+    >
+      {label}
+    </div>
   );
 }
 

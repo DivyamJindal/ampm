@@ -12,6 +12,46 @@ const AgentResponseSchema = z.object({
   thought: z.string(),
   fit_score: z.number().min(1).max(10),
   next_move: z.string(),
+  agent_trace: z.array(
+    z.object({
+      agent: z.enum([
+        "interaction_agent",
+        "tone_reader",
+        "fit_scorer",
+        "negotiation_simulator",
+        "guardrail",
+        "message_writer",
+      ]),
+      status: z.enum(["done", "running", "waiting"]),
+      summary: z.string(),
+      detail: z.string(),
+      latency_ms: z.number(),
+    }),
+  ),
+  monte_carlo: z.object({
+    sample_size: z.number(),
+    selected_move: z.string(),
+    acceptance_probability: z.number().min(0).max(1),
+    expected_cost: z.number(),
+    best_case: z.string(),
+    worst_case: z.string(),
+    rejected_moves: z.array(
+      z.object({
+        move: z.string(),
+        acceptance_probability: z.number().min(0).max(1),
+        expected_cost: z.number(),
+        reason: z.string(),
+      }),
+    ),
+  }),
+  voice_notes: z.string(),
+  guardrails: z.object({
+    ceiling_hidden: z.boolean(),
+    banned_words_clear: z.boolean(),
+    no_over_offer: z.boolean(),
+    human_tone: z.boolean(),
+    notes: z.string(),
+  }),
   state_update: z.object({
     stage: z.enum(["opener", "qualifying", "negotiating", "closing", "stalled", "signed", "lost"]),
     offer: z.number().nullable(),
@@ -62,13 +102,14 @@ function normalizeDealState(creator: CreatorPersona, dealState: DealState): Deal
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const temporaryApiKey = request.headers.get("x-openai-key")?.trim();
+  const apiKey = process.env.OPENAI_API_KEY ?? temporaryApiKey;
 
   if (!apiKey) {
     return Response.json(
       {
         error:
-          "OPENAI_API_KEY is missing. Add it to .env.local, then restart the dev server.",
+          "OPENAI_API_KEY is missing. Add it to .env.local, restart the dev server, or use the temporary local key helper in setup.",
       },
       { status: 503 },
     );

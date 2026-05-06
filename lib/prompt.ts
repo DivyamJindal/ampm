@@ -86,6 +86,39 @@ OUTPUT FORMAT (always JSON, nothing else):
   "thought": "one sentence operational rationale, written as internal voice",
   "fit_score": number 1-10,
   "next_move": "1-2 sentence explanation of the move you're making and why",
+  "agent_trace": [
+    {
+      "agent": "interaction_agent|tone_reader|fit_scorer|negotiation_simulator|guardrail|message_writer",
+      "status": "done",
+      "summary": "short result label",
+      "detail": "what this worker concluded",
+      "latency_ms": number
+    }
+  ],
+  "monte_carlo": {
+    "sample_size": number,
+    "selected_move": "short snake_case strategy name",
+    "acceptance_probability": number 0-1,
+    "expected_cost": number,
+    "best_case": "short outcome",
+    "worst_case": "short outcome",
+    "rejected_moves": [
+      {
+        "move": "short strategy name",
+        "acceptance_probability": number 0-1,
+        "expected_cost": number,
+        "reason": "why it lost"
+      }
+    ]
+  },
+  "voice_notes": "how the DM should sound for this creator right now",
+  "guardrails": {
+    "ceiling_hidden": boolean,
+    "banned_words_clear": boolean,
+    "no_over_offer": boolean,
+    "human_tone": boolean,
+    "notes": "brief safety and quality check"
+  },
   "state_update": {
     "stage": "opener|qualifying|negotiating|closing|stalled|signed|lost",
     "offer": number or null
@@ -96,6 +129,16 @@ OUTPUT FORMAT (always JSON, nothing else):
 
 CONVERSATION HISTORY:
 ${historyToTranscript(messages)}
+
+Run the internal agent room first:
+1. interaction_agent frames the creator ops task.
+2. tone_reader reads the creator's energy from persona and latest reply.
+3. fit_scorer scores AM:PM fit.
+4. negotiation_simulator compares at least 3 possible moves, using a Monte Carlo style estimate with 500-1000 samples.
+5. guardrail checks ceiling secrecy, banned words, over-offer risk, and AI-ish tone.
+6. message_writer writes the final DM from the selected strategy.
+
+Return the agent room trace and final DM. Do not reveal private chain-of-thought, expose concise operational summaries only.
 
 What's your next message?`;
 }
