@@ -122,13 +122,21 @@ function normalizeAgentResponse(
   }
 
   if (messageCount === 0) {
+    const openerText = `${parsed.message} ${parsed.double_text ?? ""}`.toLowerCase();
+    const hasAmpmContext =
+      openerText.includes("am:pm") ||
+      openerText.includes("ampm") ||
+      openerText.includes("creator-led") ||
+      openerText.includes("news");
+    const asksCreatorQuestion = openerText.includes("?");
+
     parsed.state_update = {
       ...parsed.state_update,
       stage: "intro",
       offer: null,
     };
 
-    if (!parsed.double_text) {
+    if (!parsed.double_text && (!hasAmpmContext || !asksCreatorQuestion)) {
       parsed.double_text =
         "quick context, AM:PM does short creator-led news and culture reels. you keep the voice, we bring angles + scripting support if useful. open to seeing 2-3 angles for your page?";
     }
