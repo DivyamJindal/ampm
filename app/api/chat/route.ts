@@ -101,6 +101,42 @@ function normalizeDealState(creator: CreatorPersona, dealState: DealState): Deal
   };
 }
 
+function normalizeAgentResponse(
+  parsed: AgentResponse,
+  creator: CreatorPersona,
+  messageCount: number,
+) {
+  const rates = rateSheet[creator.tier];
+
+  if (parsed.state_update.offer !== null && parsed.state_update.offer <= 0) {
+    parsed.state_update.offer = null;
+  }
+
+  const isNegotiating = ["negotiating", "closing", "signed"].includes(parsed.state_update.stage);
+
+  if (isNegotiating && parsed.state_update.offer !== null) {
+    parsed.state_update.offer = Math.min(
+      rates.ceiling,
+      Math.max(rates.floor, parsed.state_update.offer),
+    );
+  }
+
+  if (messageCount === 0) {
+    parsed.state_update = {
+      ...parsed.state_update,
+      stage: "intro",
+      offer: null,
+    };
+
+    if (!parsed.double_text) {
+      parsed.double_text =
+        "quick context, AM:PM does short creator-led news and culture reels. you keep the voice, we bring angles + scripting support if useful. open to seeing 2-3 angles for your page?";
+    }
+  }
+
+  return parsed;
+}
+
 export async function POST(request: Request) {
   const temporaryApiKey = request.headers.get("x-openai-key")?.trim();
   const apiKey = process.env.OPENAI_API_KEY ?? temporaryApiKey;
@@ -159,20 +195,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (payload.messages.length === 0) {
-      parsed.state_update = {
-        ...parsed.state_update,
-        stage: "intro",
-        offer: null,
-      };
-
-      if (!parsed.double_text) {
-        parsed.double_text =
-          "quick context, AM:PM does short creator-led news and culture reels. you keep the voice, we bring angles + scripting support if useful. open to seeing 2-3 angles for your page?";
-      }
-    }
-
-    return Response.json(parsed);
+    return Response.json(normalizeAgentResponse(parsed, payload.creator, payload.messages.length));
   } catch (error) {
     const status =
       typeof error === "object" &&
