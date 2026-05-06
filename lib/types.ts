@@ -23,7 +23,7 @@ export type DealState = {
   tier: "A" | "B" | "C";
   currentOffer: number | null;
   ceiling: number;
-  stage: "opener" | "qualifying" | "negotiating" | "closing" | "stalled" | "signed" | "lost";
+  stage: "opener" | "intro" | "qualifying" | "negotiating" | "closing" | "stalled" | "signed" | "lost";
   turnsElapsed: number;
 };
 

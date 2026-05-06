@@ -3,7 +3,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { rateSheet } from "@/lib/creators";
 import { buildSystemPrompt } from "@/lib/prompt";
-import type { ChatMessage, CreatorPersona, DealState } from "@/lib/types";
+import type { AgentResponse, ChatMessage, CreatorPersona, DealState } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +53,7 @@ const AgentResponseSchema = z.object({
     notes: z.string(),
   }),
   state_update: z.object({
-    stage: z.enum(["opener", "qualifying", "negotiating", "closing", "stalled", "signed", "lost"]),
+    stage: z.enum(["opener", "intro", "qualifying", "negotiating", "closing", "stalled", "signed", "lost"]),
     offer: z.number().nullable(),
   }),
   message: z.string(),
@@ -86,7 +86,7 @@ const RequestSchema = z.object({
     tier: z.enum(["A", "B", "C"]),
     currentOffer: z.number().nullable(),
     ceiling: z.number(),
-    stage: z.enum(["opener", "qualifying", "negotiating", "closing", "stalled", "signed", "lost"]),
+    stage: z.enum(["opener", "intro", "qualifying", "negotiating", "closing", "stalled", "signed", "lost"]),
     turnsElapsed: z.number(),
   }),
 });
@@ -150,13 +150,26 @@ export async function POST(request: Request) {
       },
     });
 
-    const parsed = response.output_parsed;
+    const parsed = response.output_parsed as AgentResponse | null;
 
     if (!parsed) {
       return Response.json(
         { error: "The model did not return a usable structured response." },
         { status: 502 },
       );
+    }
+
+    if (payload.messages.length === 0) {
+      parsed.state_update = {
+        ...parsed.state_update,
+        stage: "intro",
+        offer: null,
+      };
+
+      if (!parsed.double_text) {
+        parsed.double_text =
+          "quick context, AM:PM does short creator-led news and culture reels. you keep the voice, we bring angles + scripting support if useful. open to seeing 2-3 angles for your page?";
+      }
     }
 
     return Response.json(parsed);

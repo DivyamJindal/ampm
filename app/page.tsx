@@ -61,7 +61,7 @@ function makeDealState(creator: CreatorPersona): DealState {
 
   return {
     tier: creator.tier,
-    currentOffer: rates.floor,
+    currentOffer: null,
     ceiling: rates.ceiling,
     stage: "opener",
     turnsElapsed: 0,
